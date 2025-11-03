@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>LinguaTalk+ Duolingo Mode 🌍</title>
+  <title>LinguaTalk+ 🌍</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h1>Betty Swollocks!</h1>
+  <h1>LinguaTalk+ 🦉 Duolingo-Style Tutor</h1>
 
   <div class="controls">
     <label>Language:
@@ -27,6 +27,9 @@
         <option value="intro">🙋 Introductions</option>
         <option value="numbers">🔢 Numbers</option>
         <option value="food">🍎 Food</option>
+        <option value="travel">✈️ Travel</option>
+        <option value="shopping">🛍️ Shopping</option>
+        <option value="intermediate">📘 Intermediate</option>
       </select>
     </label>
   </div>
@@ -37,8 +40,12 @@
   </div>
 
   <div id="chat"></div>
-  <button id="speakBtn">🎤 Speak</button>
-  <button id="nextBtn">➡️ Next</button>
+
+  <div class="buttons">
+    <button id="speakBtn">🎤 Speak</button>
+    <button id="nextBtn">➡️ Next Exercise</button>
+    <button id="chatBtn">💬 Chat with AI</button>
+  </div>
 
   <div id="score">Pronunciation Score: —</div>
 
