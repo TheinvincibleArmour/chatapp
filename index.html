@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>LinguaTalk+ Duolingo Mode 🌍</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <h1>Betty Swollocks!</h1>
+
+  <div class="controls">
+    <label>Language:
+      <select id="languageSelect">
+        <option value="en-US">🇬🇧 English</option>
+        <option value="es-ES">🇪🇸 Spanish</option>
+        <option value="fr-FR">🇫🇷 French</option>
+        <option value="zh-CN">🇨🇳 Mandarin</option>
+        <option value="ar-SA">🇸🇦 Arabic</option>
+        <option value="ru-RU">🇷🇺 Russian</option>
+      </select>
+    </label>
+
+    <label>Topic:
+      <select id="topicSelect">
+        <option value="greetings">👋 Greetings</option>
+        <option value="intro">🙋 Introductions</option>
+        <option value="numbers">🔢 Numbers</option>
+        <option value="food">🍎 Food</option>
+      </select>
+    </label>
+  </div>
+
+  <div id="stats">
+    <div id="xp">XP: 0</div>
+    <div id="streak">🔥 Streak: 0</div>
+  </div>
+
+  <div id="chat"></div>
+  <button id="speakBtn">🎤 Speak</button>
+  <button id="nextBtn">➡️ Next</button>
+
+  <div id="score">Pronunciation Score: —</div>
+
+  <script src="script.js"></script>
+</body>
+</html>
