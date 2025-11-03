@@ -1,6 +1,7 @@
 const chat = document.getElementById('chat');
 const speakBtn = document.getElementById('speakBtn');
 const nextBtn = document.getElementById('nextBtn');
+const chatBtn = document.getElementById('chatBtn');
 const languageSelect = document.getElementById('languageSelect');
 const topicSelect = document.getElementById('topicSelect');
 const scoreEl = document.getElementById('score');
@@ -29,6 +30,22 @@ const lessons = {
       { type: "listen", phrase: "Uno", translation: "One" },
       { type: "listen", phrase: "Dos", translation: "Two" },
       { type: "speak", phrase: "Tres", translation: "Three" }
+    ],
+    food: [
+      { type: "speak", phrase: "Manzana", translation: "Apple" },
+      { type: "translate", phrase: "Pan", translation: "Bread" }
+    ],
+    travel: [
+      { type: "speak", phrase: "¿Dónde está la estación?", translation: "Where is the station?" },
+      { type: "translate", phrase: "El aeropuerto", translation: "The airport" }
+    ],
+    shopping: [
+      { type: "translate", phrase: "¿Cuánto cuesta?", translation: "How much is it?" },
+      { type: "speak", phrase: "Quiero comprar esto", translation: "I want to buy this" }
+    ],
+    intermediate: [
+      { type: "speak", phrase: "Estoy aprendiendo español.", translation: "I am learning Spanish." },
+      { type: "translate", phrase: "¿Puedes ayudarme?", translation: "Can you help me?" }
     ]
   },
   "fr-FR": {
@@ -36,27 +53,17 @@ const lessons = {
       { type: "listen", phrase: "Bonjour", translation: "Hello" },
       { type: "speak", phrase: "Salut", translation: "Hi" },
       { type: "translate", phrase: "Merci", translation: "Thank you" }
+    ],
+    intro: [
+      { type: "speak", phrase: "Je m'appelle...", translation: "My name is..." },
+      { type: "translate", phrase: "Comment ça va?", translation: "How are you?" }
     ]
   }
 };
 
-// ------------------- FUNCTIONS -------------------
-
 function updateStats() {
   xpEl.textContent = `XP: ${xp}`;
   streakEl.textContent = `🔥 Streak: ${streak}`;
-
-  const progress = document.getElementById('progress');
-  if (progress) {
-    // 100 XP per level
-    const progressPercent = Math.min((xp % 100), 100);
-    progress.style.width = `${progressPercent}%`;
-  }
-}
-
-function animateStat(el) {
-  el.classList.add('pop');
-  setTimeout(() => el.classList.remove('pop'), 300);
 }
 
 function addMessage(text, sender) {
@@ -69,15 +76,17 @@ function addMessage(text, sender) {
 
 function pronunciationScore(expected, actual) {
   const e = expected.toLowerCase(), a = actual.toLowerCase();
+  let feedback = "";
   let matches = 0;
   for (let i = 0; i < Math.min(e.length, a.length); i++) {
     if (e[i] === a[i]) matches++;
+    else feedback += `Expected '${e[i]}' but said '${a[i]}'. `;
   }
-  return Math.round((matches / e.length) * 100);
+  const score = Math.round((matches / e.length) * 100);
+  return { score, feedback };
 }
 
 function speak(text, lang) {
-  speechSynthesis.cancel(); // stop previous speech
   const utter = new SpeechSynthesisUtterance(text);
   utter.lang = lang;
   speechSynthesis.speak(utter);
@@ -86,91 +95,70 @@ function speak(text, lang) {
 function getExercise() {
   const lang = languageSelect.value;
   const topic = topicSelect.value;
-  const topicLessons = lessons[lang]?.[topic];
-  if (!topicLessons || topicLessons.length === 0) return null;
+  const topicLessons = lessons[lang]?.[topic] || lessons["es-ES"]["greetings"];
   return topicLessons[Math.floor(Math.random() * topicLessons.length)];
 }
-
-// ------------------- EXERCISE FLOW -------------------
 
 function nextExercise() {
   chat.innerHTML = "";
   currentExercise = getExercise();
-
-  if (!currentExercise) {
-    addMessage("❌ No lessons available for this topic yet.", "bot");
-    return;
-  }
+  if (!currentExercise) return addMessage("No lessons yet for this topic.", "bot");
 
   switch (currentExercise.type) {
     case "listen":
-      addMessage(`🎧 Listen and repeat: "${currentExercise.phrase}"`, "bot");
+      addMessage(`Listen and repeat: "${currentExercise.phrase}"`, "bot");
       speak(currentExercise.phrase, languageSelect.value);
       break;
     case "translate":
-      addMessage(`✏️ Translate this: "${currentExercise.phrase}"`, "bot");
+      addMessage(`Translate this: "${currentExercise.phrase}"`, "bot");
       break;
     case "speak":
-      addMessage(`🗣 Say: "${currentExercise.phrase}" (${currentExercise.translation})`, "bot");
+      addMessage(`Say: "${currentExercise.phrase}" (${currentExercise.translation})`, "bot");
       speak(currentExercise.phrase, languageSelect.value);
       break;
   }
 }
 
-// ------------------- SPEECH RECOGNITION -------------------
-
 function startListening() {
-  if (!currentExercise) {
-    addMessage("⚠️ Please click 'Next' to load an exercise first.", "bot");
-    return;
-  }
-
   recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
   recognition.lang = languageSelect.value;
   recognition.start();
-  addMessage("🎙️ Listening...", "bot");
 
   recognition.onresult = (event) => {
     const userSpeech = event.results[0][0].transcript;
     addMessage(userSpeech, 'user');
 
-    const score = pronunciationScore(currentExercise.phrase, userSpeech);
-    scoreEl.textContent = `Pronunciation Score: ${score}%`;
+    if(currentExercise){
+      const { score, feedback } = pronunciationScore(currentExercise.phrase, userSpeech);
+      scoreEl.textContent = `Pronunciation Score: ${score}%`;
 
-    // Dynamic bot responses based on score
-    if (score >= 85) {
-      addMessage("🌟 Excellent! +10 XP", "bot");
-      xp += 10;
-      streak++;
-      animateStat(xpEl);
-      animateStat(streakEl);
-    } else if (score >= 60) {
-      addMessage("✅ Good job! +5 XP, keep practicing!", "bot");
-      xp += 5;
-      streak++;
-      animateStat(xpEl);
-      animateStat(streakEl);
+      if (score >= 60) {
+        addMessage("✅ Great job! +10 XP", "bot");
+        xp += 10;
+        streak++;
+      } else {
+        addMessage(`❌ Try again. Feedback: ${feedback}`, "bot");
+        streak = 0;
+      }
+      localStorage.setItem('xp', xp);
+      localStorage.setItem('streak', streak);
+      updateStats();
     } else {
-      addMessage("❌ Not quite. Try again!", "bot");
-      streak = Math.max(0, streak - 1);
-      animateStat(streakEl);
+      addMessage("💬 Practice conversation mode active!", "bot");
     }
-
-    localStorage.setItem('xp', xp);
-    localStorage.setItem('streak', streak);
-    updateStats();
-  };
-
-  recognition.onerror = (e) => {
-    addMessage(`⚠️ Error: ${e.error}`, "bot");
   };
 }
 
-// ------------------- EVENT LISTENERS -------------------
+// Simulated AI conversation
+chatBtn.addEventListener('click', () => {
+  const prompt = prompt("Say something to AI:");
+  if (!prompt) return;
+  addMessage(prompt, "user");
+
+  // Simple AI placeholder response
+  addMessage(`🤖 AI says: I heard "${prompt}". Let's continue in ${languageSelect.options[languageSelect.selectedIndex].text}!`, "bot");
+});
 
 speakBtn.addEventListener('click', startListening);
 nextBtn.addEventListener('click', nextExercise);
 
-// ------------------- START -------------------
-
-addMessage("👋 Welcome to Deez Nutz Language Course! Choose a language & topic, then click 'Next' to start.", "bot");
