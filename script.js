@@ -1,7 +1,7 @@
 const chat = document.getElementById('chat');
 const speakBtn = document.getElementById('speakBtn');
 const nextBtn = document.getElementById('nextBtn');
-const chatBtn = document.getElementById('chatBtn');
+const conversationBtn = document.getElementById('conversationBtn');
 const languageSelect = document.getElementById('languageSelect');
 const topicSelect = document.getElementById('topicSelect');
 const scoreEl = document.getElementById('score');
@@ -9,57 +9,66 @@ const xpEl = document.getElementById('xp');
 const streakEl = document.getElementById('streak');
 
 let recognition;
-let currentExercise = null;
+let currentLanguage = languageSelect.value;
+let selectedTopic = null;
+let currentExerciseIndex = 0;
 let streak = parseInt(localStorage.getItem('streak') || 0);
 let xp = parseInt(localStorage.getItem('xp') || 0);
 
 updateStats();
 
+// Example lessons
 const lessons = {
+  "en-US": {
+    greetings: [
+      { type: "listen", phrase: "Hello", translation: "Hello" },
+      { type: "speak", phrase: "Good morning", translation: "Good morning" },
+      { type: "translate", phrase: "Thank you", translation: "Thank you" }
+    ],
+    travel: [
+      { type: "listen", phrase: "Where is the airport?", translation: "Where is the airport?" },
+      { type: "speak", phrase: "I need a taxi", translation: "I need a taxi" },
+      { type: "translate", phrase: "How much is this?", translation: "How much is this?" }
+    ]
+  },
   "es-ES": {
     greetings: [
       { type: "listen", phrase: "Hola", translation: "Hello" },
       { type: "speak", phrase: "Buenos días", translation: "Good morning" },
       { type: "translate", phrase: "Gracias", translation: "Thank you" }
-    ],
-    intro: [
-      { type: "speak", phrase: "Me llamo...", translation: "My name is..." },
-      { type: "translate", phrase: "¿Cómo estás?", translation: "How are you?" }
-    ],
-    numbers: [
-      { type: "listen", phrase: "Uno", translation: "One" },
-      { type: "listen", phrase: "Dos", translation: "Two" },
-      { type: "speak", phrase: "Tres", translation: "Three" }
-    ],
-    food: [
-      { type: "speak", phrase: "Manzana", translation: "Apple" },
-      { type: "translate", phrase: "Pan", translation: "Bread" }
-    ],
-    travel: [
-      { type: "speak", phrase: "¿Dónde está la estación?", translation: "Where is the station?" },
-      { type: "translate", phrase: "El aeropuerto", translation: "The airport" }
-    ],
-    shopping: [
-      { type: "translate", phrase: "¿Cuánto cuesta?", translation: "How much is it?" },
-      { type: "speak", phrase: "Quiero comprar esto", translation: "I want to buy this" }
-    ],
-    intermediate: [
-      { type: "speak", phrase: "Estoy aprendiendo español.", translation: "I am learning Spanish." },
-      { type: "translate", phrase: "¿Puedes ayudarme?", translation: "Can you help me?" }
-    ]
-  },
-  "fr-FR": {
-    greetings: [
-      { type: "listen", phrase: "Bonjour", translation: "Hello" },
-      { type: "speak", phrase: "Salut", translation: "Hi" },
-      { type: "translate", phrase: "Merci", translation: "Thank you" }
-    ],
-    intro: [
-      { type: "speak", phrase: "Je m'appelle...", translation: "My name is..." },
-      { type: "translate", phrase: "Comment ça va?", translation: "How are you?" }
     ]
   }
 };
+
+// Populate topic select dynamically
+function updateTopicOptions() {
+  topicSelect.innerHTML = '<option value="">Select topic</option>';
+  const topics = Object.keys(lessons[currentLanguage] || {});
+  topics.forEach(t => {
+    const option = document.createElement('option');
+    option.value = t;
+    option.textContent = t.charAt(0).toUpperCase() + t.slice(1);
+    topicSelect.appendChild(option);
+  });
+}
+
+updateTopicOptions();
+
+languageSelect.addEventListener('change', () => {
+  currentLanguage = languageSelect.value;
+  selectedTopic = null;
+  currentExerciseIndex = 0;
+  updateTopicOptions();
+  chat.innerHTML = "";
+  addMessage("Language changed. Please select a topic.", "bot");
+});
+
+topicSelect.addEventListener('change', () => {
+  selectedTopic = topicSelect.value;
+  currentExerciseIndex = 0;
+  chat.innerHTML = "";
+  if(selectedTopic) showExercise();
+});
 
 function updateStats() {
   xpEl.textContent = `XP: ${xp}`;
@@ -76,14 +85,9 @@ function addMessage(text, sender) {
 
 function pronunciationScore(expected, actual) {
   const e = expected.toLowerCase(), a = actual.toLowerCase();
-  let feedback = "";
   let matches = 0;
-  for (let i = 0; i < Math.min(e.length, a.length); i++) {
-    if (e[i] === a[i]) matches++;
-    else feedback += `Expected '${e[i]}' but said '${a[i]}'. `;
-  }
-  const score = Math.round((matches / e.length) * 100);
-  return { score, feedback };
+  for (let i = 0; i < Math.min(e.length, a.length); i++) if (e[i] === a[i]) matches++;
+  return Math.round((matches / e.length) * 100);
 }
 
 function speak(text, lang) {
@@ -92,73 +96,86 @@ function speak(text, lang) {
   speechSynthesis.speak(utter);
 }
 
-function getExercise() {
-  const lang = languageSelect.value;
-  const topic = topicSelect.value;
-  const topicLessons = lessons[lang]?.[topic] || lessons["es-ES"]["greetings"];
-  return topicLessons[Math.floor(Math.random() * topicLessons.length)];
-}
+function showExercise() {
+  if (!selectedTopic) return;
+  const exercises = lessons[currentLanguage][selectedTopic];
+  if (!exercises || exercises.length === 0) return addMessage("No exercises for this topic.", "bot");
 
-function nextExercise() {
-  chat.innerHTML = "";
-  currentExercise = getExercise();
-  if (!currentExercise) return addMessage("No lessons yet for this topic.", "bot");
+  if (currentExerciseIndex >= exercises.length) {
+    return addMessage("🎉 You've completed this topic! Choose another.", "bot");
+  }
 
-  switch (currentExercise.type) {
+  const exercise = exercises[currentExerciseIndex];
+  switch (exercise.type) {
     case "listen":
-      addMessage(`Listen and repeat: "${currentExercise.phrase}"`, "bot");
-      speak(currentExercise.phrase, languageSelect.value);
+      addMessage(`Listen and repeat: "${exercise.phrase}"`, "bot");
+      speak(exercise.phrase, currentLanguage);
       break;
     case "translate":
-      addMessage(`Translate this: "${currentExercise.phrase}"`, "bot");
+      addMessage(`Translate this: "${exercise.phrase}"`, "bot");
       break;
     case "speak":
-      addMessage(`Say: "${currentExercise.phrase}" (${currentExercise.translation})`, "bot");
-      speak(currentExercise.phrase, languageSelect.value);
+      addMessage(`Say: "${exercise.phrase}" (${exercise.translation})`, "bot");
+      speak(exercise.phrase, currentLanguage);
       break;
   }
 }
 
+function nextExercise() {
+  if (!selectedTopic) return addMessage("Select a topic first.", "bot");
+  currentExerciseIndex++;
+  showExercise();
+}
+
 function startListening() {
+  if (!selectedTopic) return addMessage("Select a topic first.", "bot");
+
   recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-  recognition.lang = languageSelect.value;
+  recognition.lang = currentLanguage;
   recognition.start();
 
   recognition.onresult = (event) => {
     const userSpeech = event.results[0][0].transcript;
     addMessage(userSpeech, 'user');
 
-    if(currentExercise){
-      const { score, feedback } = pronunciationScore(currentExercise.phrase, userSpeech);
-      scoreEl.textContent = `Pronunciation Score: ${score}%`;
+    const exercise = lessons[currentLanguage][selectedTopic][currentExerciseIndex];
+    const score = pronunciationScore(exercise.phrase, userSpeech);
+    scoreEl.textContent = `Pronunciation Score: ${score}%`;
 
-      if (score >= 60) {
-        addMessage("✅ Great job! +10 XP", "bot");
-        xp += 10;
-        streak++;
-      } else {
-        addMessage(`❌ Try again. Feedback: ${feedback}`, "bot");
-        streak = 0;
-      }
+    if (score >= 60) {
+      addMessage("✅ Great job! +10 XP", "bot");
+      xp += 10;
+      streak++;
       localStorage.setItem('xp', xp);
       localStorage.setItem('streak', streak);
-      updateStats();
     } else {
-      addMessage("💬 Practice conversation mode active!", "bot");
+      addMessage("❌ Try again to improve pronunciation.", "bot");
+      streak = 0;
+      localStorage.setItem('streak', 0);
     }
+    updateStats();
   };
 }
 
 // Simulated AI conversation
-chatBtn.addEventListener('click', () => {
-  const prompt = prompt("Say something to AI:");
-  if (!prompt) return;
-  addMessage(prompt, "user");
+async function startConversation() {
+  addMessage("💬 AI Conversation Mode: Type messages in prompt. Type 'exit' to stop.", "bot");
+  let userMessage = prompt("You:");
+  while(userMessage && userMessage.toLowerCase() !== "exit") {
+    const aiResponse = await getAIResponse(userMessage);
+    addMessage(aiResponse, "bot");
+    userMessage = prompt("You:");
+  }
+}
 
-  // Simple AI placeholder response
-  addMessage(`🤖 AI says: I heard "${prompt}". Let's continue in ${languageSelect.options[languageSelect.selectedIndex].text}!`, "bot");
-});
+function getAIResponse(msg) {
+  return new Promise(resolve => {
+    setTimeout(() => resolve(`AI: I heard you say "${msg}"`), 500);
+  });
+}
 
 speakBtn.addEventListener('click', startListening);
 nextBtn.addEventListener('click', nextExercise);
+conversationBtn.addEventListener('click', startConversation);
 
+addMessage("Welcome! Select a language and topic, then click 'Next Exercise' to start.", "bot");
